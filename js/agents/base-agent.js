@@ -56,37 +56,41 @@ export class BaseAgent {
     return this._lsGetAll();
   }
 
-  /** 条件付き取得 */
+  /** 条件付き取得
+   *  ※ where() + orderBy() の複合クエリは Firestore の複合インデックスが必要なため、
+   *     orderBy はクエリから除去してクライアント側でソートする
+   */
   async getWhere(field, op, value, orderField = 'createdAt') {
-    if (isConfigured && db) {
-      try {
-        const q = query(
-          collection(db, this.collectionName),
-          where(field, op, value),
-          orderBy(orderField, 'desc')
-        );
-        const snap = await getDocs(q);
-        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      } catch (e) {
-        console.warn(`[${this.agentId}] getWhere fallback to LS:`, e.message);
-        return this._lsGetAll().filter(r => {
-          const val = r[field];
-          if (op === '==')  return val === value;
-          if (op === '>=')  return val >= value;
-          if (op === '<=')  return val <= value;
-          if (op === '!=')  return val !== value;
-          return true;
-        });
-      }
-    }
-    return this._lsGetAll().filter(r => {
+    const filterFn = r => {
       const val = r[field];
       if (op === '==') return val === value;
       if (op === '>=') return val >= value;
       if (op === '<=') return val <= value;
       if (op === '!=') return val !== value;
       return true;
-    });
+    };
+    const sortFn = (a, b) => {
+      const av = a[orderField] ?? '';
+      const bv = b[orderField] ?? '';
+      return String(bv).localeCompare(String(av)); // desc
+    };
+
+    if (isConfigured && db) {
+      try {
+        // orderBy を使わず where のみでクエリ（複合インデックス不要）
+        const q = query(
+          collection(db, this.collectionName),
+          where(field, op, value)
+        );
+        const snap = await getDocs(q);
+        const results = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        return results.filter(filterFn).sort(sortFn);
+      } catch (e) {
+        console.warn(`[${this.agentId}] getWhere error, fallback to LS:`, e.message);
+        return this._lsGetAll().filter(filterFn).sort(sortFn);
+      }
+    }
+    return this._lsGetAll().filter(filterFn).sort(sortFn);
   }
 
   /** IDで1件取得 */

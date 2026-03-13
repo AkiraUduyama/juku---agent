@@ -2,17 +2,14 @@
  * firebase-config.js
  * Firebase 初期化モジュール（juku-agent プロジェクト）
  *
- * Firebase v10 では enableIndexedDbPersistence が廃止されたため
- * initializeFirestore + persistentLocalCache を使用する
+ * CDN ビルドでは persistentLocalCache 等が undefined になるため
+ * getFirestore() のみで初期化する（最もシンプルで確実な方法）。
  */
 
 import { initializeApp }
   from 'https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js';
-import {
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager
-} from 'https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js';
+import { getFirestore }
+  from 'https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey:            "AIzaSyCNblOKeP-xGxmm6t5GN5dDCq75WadQUdU",
@@ -29,19 +26,12 @@ let isConfigured = false;
 
 try {
   const app = initializeApp(firebaseConfig);
-
-  // v10 の正式なオフラインキャッシュAPI（複数タブ対応）
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    })
-  });
-
+  db = getFirestore(app);
   isConfigured = true;
-  console.info('[Firebase] 接続完了 ✅ projectId:', firebaseConfig.projectId);
+  console.info('[Firebase] ✅ 接続完了 projectId:', firebaseConfig.projectId);
 } catch (e) {
-  console.error('[Firebase] 初期化エラー ❌:', e);
-  console.warn('[Firebase] ローカルストレージモードで動作します');
+  console.error('[Firebase] ❌ 初期化エラー:', e.message, e);
+  console.warn('[Firebase] ⚠️ ローカルストレージモードで動作します');
 }
 
 export { db, isConfigured };
