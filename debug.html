@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>Firebase 診断ページ</title>
+  <style>
+    body { font-family: monospace; padding: 24px; background: #0f172a; color: #e2e8f0; }
+    h1 { color: #60a5fa; }
+    .step { margin: 12px 0; padding: 12px; border-radius: 6px; background: #1e293b; }
+    .ok   { border-left: 4px solid #22c55e; }
+    .err  { border-left: 4px solid #ef4444; }
+    .info { border-left: 4px solid #60a5fa; }
+    .warn { border-left: 4px solid #f59e0b; }
+    pre  { margin: 4px 0 0 0; font-size: 12px; color: #94a3b8; white-space: pre-wrap; word-break: break-all; }
+    button { margin-top: 16px; padding: 10px 20px; background: #2563eb; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    button:hover { background: #1d4ed8; }
+    #log { margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Firebase 診断ページ</h1>
+  <p>このページで Firebase / Firestore の接続状況を詳しく確認できます。</p>
+
+  <div id="log"></div>
+
+  <button onclick="location.reload()">🔄 再診断</button>
+  <button onclick="runWriteTest()">✍️ Firestore 書き込みテスト</button>
+
+  <script type="module">
+    const log = document.getElementById('log');
+
+    function addStep(level, title, detail = '') {
+      const cls = { ok: 'ok', err: 'err', info: 'info', warn: 'warn' }[level] || 'info';
+      const icon = { ok: '✅', err: '❌', info: 'ℹ️', warn: '⚠️' }[level] || 'ℹ️';
+      const div = document.createElement('div');
+      div.className = `step ${cls}`;
+      div.innerHTML = `<strong>${icon} ${title}</strong>${detail ? `<pre>${detail}</pre>` : ''}`;
+      log.appendChild(div);
+    }
+
+    // 1. 動作環境チェック
+    addStep('info', `動作環境: ${location.protocol}//${location.host || '(file)'}${location.pathname}`);
+
+    if (location.protocol === 'file:') {
+      addStep('warn', 'file:// プロトコルで開かれています',
+        'Firebase は file:// では動作しません。\n' +
+        'ローカルサーバーが必要です:\n' +
+        '  python -m http.server 8080\n' +
+        '  npx serve .\n' +
+        'その後 http://localhost:8080 を開いてください。');
+    } else {
+      addStep('ok', `HTTP サーバー経由で動作中 (${location.protocol})`);
+    }
+
+    // 2. Firebase App 初期化
+    let app, db;
+    try {
+      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js');
+      addStep('ok', 'firebase-app.js の読み込み成功');
+
+      const firebaseConfig = {
+        apiKey:            "AIzaSyCNblOKeP-xGxmm6t5GN5dDCq75WadQUdU",
+        authDomain:        "juku-agent.firebaseapp.com",
+        projectId:         "juku-agent",
+        storageBucket:     "juku-agent.firebasestorage.app",
+        messagingSenderId: "279883828399",
+        appId:             "1:279883828399:web:19c4949b04a00bd7b5985a",
+      };
+
+      // 既に初期化済みの場合は取得
+      let existingApp;
+      try {
+        const { getApp } = await import('https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js');
+        existingApp = getApp();
+        app = existingApp;
+        addStep('info', 'Firebase App は既に初期化済みです（再利用）');
+      } catch {
+        app = initializeApp(firebaseConfig);
+        addStep('ok', `Firebase App 初期化成功 projectId: ${firebaseConfig.projectId}`);
+      }
+
+    } catch (e) {
+      addStep('err', 'Firebase App 初期化に失敗', e.message + '\n' + e.stack);
+    }
+
+    // 3. Firestore 初期化
+    if (app) {
+      try {
+        const { getFirestore } = await import('https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js');
+        addStep('ok', 'firebase-firestore.js の読み込み成功');
+
+        db = getFirestore(app);
+        addStep('ok', 'Firestore インスタンス取得成功');
+
+        // 4. 実際に読み取りテスト
+        try {
+          const { getDocs, collection } = await import('https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js');
+          const snap = await getDocs(collection(db, '_test_connection'));
+          addStep('ok', `Firestore 読み取りテスト成功 (${snap.size} 件)`,
+            'Firestore への接続は正常です！\nメインアプリに戻って Ctrl+Shift+R でハードリフレッシュしてください。');
+        } catch (e) {
+          addStep('err', 'Firestore 読み取りエラー', e.code + ': ' + e.message +
+            (e.code === 'permission-denied'
+              ? '\n\n→ Firestore セキュリティルールが原因です。\nFirebase Console > Firestore > ルール で以下を設定:\nrules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}'
+              : e.code === 'unavailable'
+              ? '\n\n→ ネットワーク接続またはFirebase Consoleでのデータベース作成を確認してください。'
+              : ''));
+        }
+
+      } catch (e) {
+        addStep('err', 'Firestore 初期化に失敗', e.message + '\n' + e.stack);
+      }
+    }
+
+    // 5. 書き込みテスト（ボタン押下で実行）
+    window.runWriteTest = async () => {
+      if (!db) { addStep('err', 'db が未初期化です'); return; }
+      try {
+        const { addDoc, collection, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js');
+        const ref = await addDoc(collection(db, '_test_connection'), {
+          test: true, ts: serverTimestamp()
+        });
+        addStep('ok', `Firestore 書き込みテスト成功！ id: ${ref.id}`,
+          'Firestoreへの書き込みが成功しました。\nアプリはFirestoreを正常に使用できます。');
+      } catch (e) {
+        addStep('err', 'Firestore 書き込みエラー', e.code + ': ' + e.message);
+      }
+    };
+
+  </script>
+</body>
+</html>
