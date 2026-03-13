@@ -1,12 +1,18 @@
 /**
  * firebase-config.js
  * Firebase 初期化モジュール（juku-agent プロジェクト）
+ *
+ * Firebase v10 では enableIndexedDbPersistence が廃止されたため
+ * initializeFirestore + persistentLocalCache を使用する
  */
 
-import { initializeApp }    from 'https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js';
-import { getFirestore,
-         enableIndexedDbPersistence }
-                            from 'https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js';
+import { initializeApp }
+  from 'https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js';
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager
+} from 'https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey:            "AIzaSyCNblOKeP-xGxmm6t5GN5dDCq75WadQUdU",
@@ -18,27 +24,24 @@ const firebaseConfig = {
   measurementId:     "G-QENSJ2HK4X"
 };
 
-let app = null;
-let db  = null;
+let db           = null;
 let isConfigured = false;
 
 try {
-  app = initializeApp(firebaseConfig);
-  db  = getFirestore(app);
+  const app = initializeApp(firebaseConfig);
 
-  // オフラインキャッシュ（IndexedDB）を有効化
-  enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn('[Firebase] 複数タブが開かれています。オフラインキャッシュは最初のタブのみ有効です。');
-    } else if (err.code === 'unimplemented') {
-      console.warn('[Firebase] このブラウザはオフラインキャッシュをサポートしていません。');
-    }
+  // v10 の正式なオフラインキャッシュAPI（複数タブ対応）
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
   });
 
   isConfigured = true;
-  console.info('[Firebase] 接続完了:', firebaseConfig.projectId);
+  console.info('[Firebase] 接続完了 ✅ projectId:', firebaseConfig.projectId);
 } catch (e) {
-  console.error('[Firebase] 初期化エラー:', e);
+  console.error('[Firebase] 初期化エラー ❌:', e);
+  console.warn('[Firebase] ローカルストレージモードで動作します');
 }
 
 export { db, isConfigured };
