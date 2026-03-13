@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>塾業務管理システム</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ===== サイドバー ===== -->
+    <nav id="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-icon">🏫</span>
+        <span class="brand-text">塾管理<br><small>システム</small></span>
+      </div>
+      <ul class="nav-menu" id="nav-menu">
+        <li class="nav-item active" data-agent="dashboard">
+          <span class="nav-icon">🏠</span><span>ダッシュボード</span>
+        </li>
+        <li class="nav-item" data-agent="attendance">
+          <span class="nav-icon">📋</span><span>出席管理</span>
+        </li>
+        <li class="nav-item" data-agent="class-time">
+          <span class="nav-icon">⏱️</span><span>授業時間記録</span>
+        </li>
+        <li class="nav-item" data-agent="work-attendance">
+          <span class="nav-icon">👤</span><span>勤怠管理</span>
+        </li>
+        <li class="nav-item" data-agent="alarm">
+          <span class="nav-icon">🔔</span><span>アラーム</span>
+        </li>
+        <li class="nav-item" data-agent="schedule">
+          <span class="nav-icon">📅</span><span>時間割管理</span>
+        </li>
+        <li class="nav-item" data-agent="deliverable">
+          <span class="nav-icon">📁</span><span>成果物管理</span>
+        </li>
+        <li class="nav-item" data-agent="report">
+          <span class="nav-icon">📊</span><span>レポート出力</span>
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <div id="connection-status" class="status-dot disconnected">
+          <span class="dot"></span><span class="status-text">未接続</span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ===== メインコンテンツ ===== -->
+    <div id="main-wrapper">
+
+      <!-- トップバー -->
+      <header id="topbar">
+        <button id="sidebar-toggle" class="icon-btn">☰</button>
+        <div class="command-bar">
+          <span class="command-prefix">💬</span>
+          <input
+            type="text"
+            id="command-input"
+            placeholder="コマンドを入力（例：出席を記録、今月のレポートを出力、アラームを設定）"
+          />
+          <button id="command-btn" class="btn btn-primary">実行</button>
+        </div>
+        <div id="current-datetime" class="datetime-display"></div>
+      </header>
+
+      <!-- コマンドフィードバック -->
+      <div id="command-feedback" class="hidden"></div>
+
+      <!-- コンテンツエリア（各エージェントがレンダリング） -->
+      <main id="content-area">
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+          <p>読み込み中...</p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ===== モーダル ===== -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">詳細</h3>
+        <button id="modal-close" class="icon-btn">✕</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ===== トースト通知 ===== -->
+  <div id="toast-container"></div>
+
+  <!-- ===== スクリプト（ES Modules） ===== -->
+  <script type="module" src="js/main-agent.js"></script>
+</body>
+</html>
